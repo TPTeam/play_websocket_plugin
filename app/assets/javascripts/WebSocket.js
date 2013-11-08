@@ -1,62 +1,70 @@
-/**
- * @preserve Copyright 2013 mrDOob. https://github.com/mrdoob/eventtarget.js/
- *           THankS mr DOob!
- */
-var EventTarget = function() {
+var WS = WS || {};
 
-	/*
-	 * event = { type: 'eventName', content : data }
-	 */
-
-	var listeners = {};
-
+(function(func) {
+	if (typeof require === 'function' && typeof define === 'function' ) {
+		// define module, put dependencies here
+		define([ '' ], func);
+	} else {
+		// go ahead with global scope pollution :-)
+		WS = func();
+	}
+})(function() {
+	
 	/**
-	 * {function(string, function)}
+	 * @preserve Copyright 2013 mrDOob. https://github.com/mrdoob/eventtarget.js/
+	 *           THankS mr DOob!
 	 */
-	this.addEventListener = this.on = function(type, listener) {
+	var EventTarget = function() {
 
-		if (listeners[type] === undefined) {
+		/*
+		 * event = { type: 'eventName', content : data }
+		 */
 
-			listeners[type] = [];
+		var listeners = {};
 
-		}
+		/**
+		 * {function(string, function)}
+		 */
+		this.addEventListener = this.on = function(type, listener) {
 
-		if (listeners[type].indexOf(listener) === -1) {
+			if (listeners[type] === undefined) {
 
-			listeners[type].push(listener);
-		}
+				listeners[type] = [];
+
+			}
+
+			if (listeners[type].indexOf(listener) === -1) {
+
+				listeners[type].push(listener);
+			}
+
+		};
+
+		this.dispatchEvent = this.emit = function(event) {
+
+			for ( var listener in listeners[event.type]) {
+
+				listeners[event.type][listener](event);
+
+			}
+
+		};
+
+		this.removeEventListener = this.off = function(type, listener) {
+
+			var index = listeners[type].indexOf(listener);
+
+			if (index !== -1) {
+
+				listeners[type].splice(index, 1);
+
+			}
+
+		};
 
 	};
-
-	this.dispatchEvent = this.emit = function(event) {
-
-		for ( var listener in listeners[event.type]) {
-
-			listeners[event.type][listener](event);
-
-		}
-
-	};
-
-	this.removeEventListener = this.off = function(type, listener) {
-
-		var index = listeners[type].indexOf(listener);
-
-		if (index !== -1) {
-
-			listeners[type].splice(index, 1);
-
-		}
-
-	};
-
-};
-
-
-var WS = {};
-
-(function() {
-	WS = function(_webSocketId, _placeholderCssSel) {
+	
+	var WS = function(_webSocketId, _placeholderCssSel) {
 
 		EventTarget.call(this);
 
@@ -187,4 +195,6 @@ var WS = {};
 			}
 		}
 	}
-})()
+	
+	return WS;
+})
