@@ -1,0 +1,15 @@
+@* Web Socket helper *@
+@(name: String)(implicit request: RequestHeader)
+
+<script type="text/javascript" charset="utf-8">
+	
+	if (@name !== undefined) {
+		console.warn("WebSocket: @name already esists in global scope. Will be overwritten.");
+	}
+	
+	var @name = new WS("@name", "#__placeholder_@name");
+			
+</script>
+
+<div id="__placeholder_@name">
+</div>
