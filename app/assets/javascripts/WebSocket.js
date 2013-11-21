@@ -1,7 +1,7 @@
 var WS = WS || {};
 
 (function(func) {
-	if (typeof require === 'function' && typeof define === 'function' ) {
+	if (typeof require === 'function' && typeof define === 'function') {
 		// define module, put dependencies here
 		define([ '' ], func);
 	} else {
@@ -9,10 +9,10 @@ var WS = WS || {};
 		WS = func();
 	}
 })(function() {
-	
+
 	/**
-	 * @preserve Copyright 2013 mrDOob. https://github.com/mrdoob/eventtarget.js/
-	 *           THankS mr DOob!
+	 * @preserve Copyright 2013 mrDOob.
+	 *           https://github.com/mrdoob/eventtarget.js/ THankS mr DOob!
 	 */
 	var EventTarget = function() {
 
@@ -63,7 +63,7 @@ var WS = WS || {};
 		};
 
 	};
-	
+
 	var WS = function(_webSocketId, _placeholderCssSel) {
 
 		EventTarget.call(this);
@@ -149,8 +149,9 @@ var WS = WS || {};
 									console.error("ERROR -> ", err);
 								}
 								that.hangOutCheck = setTimeout(function() {
-									that.close()
-								}, 2000)
+									that.init();
+									// that.close()
+								}, 1000)
 								this.send(that.pong);
 							} else {
 
@@ -167,11 +168,17 @@ var WS = WS || {};
 				};
 				this.wsSocket.onclose = function() {
 					console.log("WebSocket: " + that.id + " closed by server. Reconnect: ", that.autoReconnect,
-							" - Placeholder: ", that.placeholderCssSel);
+						" - Placeholder: ", that.placeholderCssSel);
 					that.emit({
 						type : 'close',
 						content : that
 					});
+					if ($(that.placeholderCssSel).length > 0) {
+						// reactivate connection
+						setTimeout(function() {
+							that.init();
+						}, 500);
+					}
 				};
 			} catch (err) {
 				console.error("WebSocket: " + that.id + " cannot connect to WebSocket at " + this.address);
@@ -195,6 +202,6 @@ var WS = WS || {};
 			}
 		}
 	}
-	
+
 	return WS;
 })
