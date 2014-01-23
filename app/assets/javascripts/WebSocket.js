@@ -81,14 +81,14 @@ var WS = WS || {};
 			"pong" : true
 		})
 
-		this.autoReconnect = false;
+//		this.autoReconnect = false;
 		this.verbose = false;
 	}
 
 	WS.prototype = {
 
 		isReady : function() {
-			return (this.wsSocket.readyState === 1);
+			return (this.wsSocket && this.wsSocket.readyState === 1);
 		},
 
 		close : function(msg) {
@@ -96,11 +96,11 @@ var WS = WS || {};
 			this.wsSocket.close();
 		},
 
-		init : function(autoReconnect) {
+		init : function() {
 
-			if (autoReconnect !== undefined) {
-				this.autoReconnect = autoReconnect;
-			}
+//			if (autoReconnect !== undefined) {
+//				this.autoReconnect = autoReconnect;
+//			}
 
 			var that = this;
 
@@ -167,8 +167,7 @@ var WS = WS || {};
 					}
 				};
 				this.wsSocket.onclose = function() {
-					console.log("WebSocket: " + that.id + " closed by server. Reconnect: ", that.autoReconnect,
-						" - Placeholder: ", that.placeholderCssSel);
+					console.log("WebSocket: " + that.id + " closed by server. Placeholder: " + that.placeholderCssSel);
 					that.emit({
 						type : 'close',
 						content : that

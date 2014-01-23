@@ -5,7 +5,7 @@ import play.Project._
 object ApplicationBuild extends Build {
 
   val appName         = "websocket_plugin"
-  val appVersion      = "0.3"
+  val appVersion      = "0.3.1"
 
   val appDependencies = Seq(
     // Add your project dependencies here,
