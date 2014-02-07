@@ -11,7 +11,7 @@ import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.duration._
 
-abstract class WebSocketManager[M <: WSManagerActor](implicit ct: scala.reflect.ClassTag[M]) {
+abstract class WebSocketManager[M <: AbstractWSManagerActor](implicit ct: scala.reflect.ClassTag[M]) {
   
   val name: Option[String] = None
  
@@ -41,7 +41,7 @@ object WSInnerMsgs {
   case object Disconnect
 }
 
-abstract class WSManagerActor extends Actor {
+abstract class AbstractWSManagerActor extends Actor {
   
   import WSInnerMsgs._
   
@@ -57,20 +57,14 @@ abstract class WSManagerActor extends Actor {
     case msg =>
       context.children.foreach(act => act ! msg)
   }
-  
-  def operative(implicit request: RequestHeader) :
-	  ((ActorRef) => PartialFunction[Any,Unit])
+    
+  def clientProp(implicit request: RequestHeader): Props
   
   def connectionManagement: PartialFunction[Any,Unit] = {
     case Connect(r) => 
       	import WSClientInnerMsgs._
       	implicit val request: RequestHeader = r
-      	val act: ActorRef = context.actorOf(Props(
-      								new WsClientActor(
-      										initTimeout,
-      										browserTimeout,
-      										operative)(r)
-      							))
+      	val act: ActorRef = context.actorOf(clientProp)
       	val outChannel: Enumerator[JsValue] = 
       	Concurrent.unicast[JsValue](
       			onStart = (
@@ -95,7 +89,9 @@ abstract class WSManagerActor extends Actor {
   
 }
 object WSClientMsgs {
-  	case class JsFromClient(elem: JsValue)
+  	case class JsFromClient(elem: JsValue)(implicit _request: RequestHeader) {
+  	  def request = _request
+  	}
   	case class JsToClient(elem: JsValue)
 }
 object WSClientInnerMsgs {
@@ -113,13 +109,41 @@ trait JsPushee {
   }
 }
 
-class WsClientActor(
-	  initTimeout: FiniteDuration,
-	  browserTimeout: FiniteDuration,
-      operative: ((ActorRef) => PartialFunction[Any,Unit]))
-      (implicit request: RequestHeader) extends Actor with JsPushee {
-	
-	import WSClientInnerMsgs._
+abstract class WSManagerActor extends AbstractWSManagerActor {
+  
+  def operative(implicit request: RequestHeader) :
+  	  ((ActorRef) => Receive)
+  
+  def clientProp(implicit request: RequestHeader): Props =
+    Props(
+    	new WsClientActor(
+      		initTimeout,
+      		browserTimeout,
+      		operative)(request)
+      	)
+ 
+}
+
+abstract class StatefullWSManagerActor extends AbstractWSManagerActor {
+  
+  def wsDevice: Props
+  
+  def clientProp(implicit request: RequestHeader): Props =
+    Props(
+    	new WsDispatcherClientActor(
+    			initTimeout,
+    			browserTimeout,
+    			wsDevice)(request)
+      	)
+ 
+}
+
+abstract class AbstractWsClientActor(implicit request: RequestHeader) extends Actor with JsPushee {
+  	  val initTimeout: FiniteDuration
+	  val browserTimeout: FiniteDuration
+      def operative(implicit request: RequestHeader): ((ActorRef) => PartialFunction[Any,Unit])
+  
+  import WSClientInnerMsgs._
     	
     def receive = {
 	  case InitDone(channel) =>
@@ -169,5 +193,38 @@ class WsClientActor(
   	     channel.eofAndEnd
   	     context.stop(self)
   	}
+}
 
+class WsClientActor(
+	  _initTimeout: FiniteDuration,
+	  _browserTimeout: FiniteDuration,
+      _operative: ((ActorRef) => PartialFunction[Any,Unit]))
+      (implicit request: RequestHeader) extends AbstractWsClientActor {
+
+  val initTimeout = _initTimeout
+  val browserTimeout = _browserTimeout
+  def operative(implicit request: RequestHeader) = _operative
+}
+
+		 
+class WsDispatcherClientActor(
+	  _initTimeout: FiniteDuration,
+	  _browserTimeout: FiniteDuration,
+      deviceProp: Props)
+      (implicit request: RequestHeader) extends AbstractWsClientActor {
+  
+  val initTimeout = _initTimeout
+  val browserTimeout = _browserTimeout
+  
+  val device =
+		  context.actorOf(deviceProp)
+		  
+  import WSClientMsgs._
+  def operative(implicit request: RequestHeader): ((ActorRef) => PartialFunction[Any,Unit]) = {
+    (wsClient: ActorRef) => {
+      case msg =>
+        device ! msg
+    }
   }
+  
+}
