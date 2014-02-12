@@ -1,0 +1,28 @@
+@* sitws Template File *@
+@(name: String)(implicit request: RequestHeader)
+
+<script type="text/javascript" charset="utf-8">
+
+	var @name;
+	
+	if (typeof require === 'function') {
+		
+		require(['sitws_plugin'], function(SITWS) {
+		
+			if (SITWS === undefined) {
+				console.error("SocketIOWebSocket: cannot load sitws_plugin module.");	
+			} else {
+				@name = new SITWS("@name", "#__placeholder_@name");
+			}
+		
+		})
+	} else {
+	
+		@name = new SITWS("@name", "#__placeholder_@name");
+	
+	}
+				
+</script>
+
+<div id="__placeholder_@name">
+</div>
