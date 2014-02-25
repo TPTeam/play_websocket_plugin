@@ -51,13 +51,17 @@ var WS = WS || {};
 		};
 
 		this.removeEventListener = this.off = function(type, listener) {
+			
+			if (listeners[type] !== undefined) {
 
-			var index = listeners[type].indexOf(listener);
-
-			if (index !== -1) {
-
-				listeners[type].splice(index, 1);
-
+				var index = listeners[type].indexOf(listener);
+	
+				if (index !== -1) {
+	
+					listeners[type].splice(index, 1);
+	
+				}
+				
 			}
 
 		};
