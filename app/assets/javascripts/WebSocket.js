@@ -68,12 +68,12 @@ var WS = WS || {};
 
 	};
 
-	var WS = function(_webSocketId, _placeholderCssSel) {
+	var WS = function(_webSocketId, _placeholderCssSel, verbose) {
 
 		EventTarget.call(this);
 
 		var that = this;
-
+		
 		this.id = _webSocketId;
 		this.placeholderCssSel = _placeholderCssSel;
 
@@ -86,7 +86,7 @@ var WS = WS || {};
 		})
 
 //		this.autoReconnect = false;
-		this.verbose = false;
+		this.verbose = (verbose !== undefined) ? verbose : false;
 	}
 
 	WS.prototype = {
@@ -96,7 +96,9 @@ var WS = WS || {};
 		},
 
 		close : function(msg) {
-			console.log("WebSocket: " + this.id + " closing by me");
+			if (this.verbose) {
+				console.log("WebSocket: " + this.id + " closing by me");
+			}
 			this.wsSocket.close();
 		},
 
@@ -108,13 +110,17 @@ var WS = WS || {};
 
 			var that = this;
 
-			console.log("WebSocket: " + that.id + " connecting to " + this.address);
+			if (this.verbose) {
+				console.log("WebSocket: " + that.id + " connecting to " + this.address);
+			}
 
 			try {
 				this.wsSocket = window['MozWebSocket'] ? new MozWebSocket(this.address) : new WebSocket(this.address);
 				var that = this;
 				this.wsSocket.onopen = function() {
-					console.log("WebSocket: " + that.id + " is opened ", that.wsSocket);
+					if (that.verbose) {
+						console.log("WebSocket: " + that.id + " is opened ", that.wsSocket);
+					}
 					that.emit({
 						type : 'open',
 						content : that
@@ -122,7 +128,9 @@ var WS = WS || {};
 
 				};
 				this.wsSocket.onerror = function(event) {
-					console.error("WebSocket: " + that.id + " has had an error. ", that.wsSocket);
+					if (that.verbose) {
+						console.error("WebSocket: " + that.id + " has had an error. ", that.wsSocket);
+					}
 				};
 				this.wsSocket.onmessage = function(event) {
 
@@ -133,7 +141,9 @@ var WS = WS || {};
 					var data = JSON.parse(event.data);
 
 					if ((data === undefined) || (data.error)) {
-						console.error("WebSocket: " + that.id + " data error -> ", event.data);
+						if (that.verbose) {
+							console.error("WebSocket: " + that.id + " data error -> ", event.data);
+						}
 						that.emit({
 							type : 'error',
 							content : event
@@ -150,7 +160,9 @@ var WS = WS || {};
 								try {
 									clearTimeout(that.hangOutCheck);
 								} catch (err) {
-									console.error("ERROR -> ", err);
+									if (that.verbose) {
+										console.error("ERROR -> ", err);
+									}
 								}
 								that.hangOutCheck = setTimeout(function() {
 									that.init();
@@ -171,7 +183,9 @@ var WS = WS || {};
 					}
 				};
 				this.wsSocket.onclose = function() {
-					console.log("WebSocket: " + that.id + " closed by server. Placeholder: " + that.placeholderCssSel);
+					if (that.verbose) {
+						console.log("WebSocket: " + that.id + " closed by server. Placeholder: " + that.placeholderCssSel);
+					}
 					that.emit({
 						type : 'close',
 						content : that
@@ -184,24 +198,31 @@ var WS = WS || {};
 					}
 				};
 			} catch (err) {
-				console.error("WebSocket: " + that.id + " cannot connect to WebSocket at " + this.address);
-				console.error("WebSocket: " + that.id + " error -> ", err);
+				if (that.verbose) {
+					console.error("WebSocket: " + that.id + " cannot connect to WebSocket at " + this.address);
+					console.error("WebSocket: " + that.id + " error -> ", err);
+				}
 			}
 
 		},
 
 		send : function(msg) {
+			var that = this;
 			if (this.wsSocket !== null && this.wsSocket !== undefined) {
 				try {
-					if (this.verbose) {
+					if (that.verbose) {
 						console.log("WebSocket: " + this.id + " is sending ", msg);
 					}
 					this.wsSocket.send(JSON.stringify(msg));
 				} catch (e) {
-					console.warn("WebSocket: " + this.id + " reported error ", e);
+					if (that.verbose) {
+						console.warn("WebSocket: " + this.id + " reported error ", e);
+					}
 				}
 			} else {
-				console.error("WebSocket: this.wsSocket is not ready, maybe missing 'init'? ", this);
+				if (that.verbose) {
+					console.error("WebSocket: " + this.id + " is not ready, maybe missing 'init'? ", this);
+				}
 			}
 		}
 	}
