@@ -10,6 +10,7 @@ import play.api.Play.current
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.duration._
+import java.util.Date
 
 abstract class WebSocketManager[M <: AbstractWSManagerActor](implicit ct: scala.reflect.ClassTag[M]) {
   
@@ -28,7 +29,7 @@ abstract class WebSocketManager[M <: AbstractWSManagerActor](implicit ct: scala.
   import WSInnerMsgs._
   def control(implicit request: RequestHeader):scala.concurrent.Future[(Iteratee[JsValue,_],Enumerator[JsValue])] = {
 	  	(actor ? Connect(request)).map {
-		  	case Connected(iteratee,enumerator) => 
+		  	case Connected(iteratee,enumerator) =>
 		  	  	(iteratee,enumerator)   
     }
   }
@@ -45,8 +46,8 @@ abstract class AbstractWSManagerActor extends Actor {
   
   import WSInnerMsgs._
   
-  val initTimeout = 2 seconds
-  val browserTimeout = 500 milliseconds 
+  val initTimeout = 8 seconds	
+  val browserTimeout = 2000 milliseconds 
   
   def receive = {
     connectionManagement orElse
@@ -54,11 +55,13 @@ abstract class AbstractWSManagerActor extends Actor {
   }
   
   def dispatch: PartialFunction[Any,Unit] = {
-    case msg =>
+    case msg => 
       context.children.foreach(act => act ! msg)
   }
     
   def clientProp(implicit request: RequestHeader): Props
+  
+  import java.util.Date
   
   def connectionManagement: PartialFunction[Any,Unit] = {
     case Connect(r) => 
@@ -76,7 +79,8 @@ abstract class AbstractWSManagerActor extends Actor {
       	val inChannel:  Iteratee[JsValue,Unit] = 
       		Iteratee.foreach[JsValue](msg =>
       		  (msg.\("pong").asOpt[Boolean]) match {
-      		    case Some(true) => act ! Pong
+      		    case Some(true) =>
+      		      act ! Pong
       		    case _ =>
       		      import WSClientMsgs._
       		      act ! JsFromClient(msg)
@@ -84,7 +88,7 @@ abstract class AbstractWSManagerActor extends Actor {
      
       	sender ! Connected(inChannel,outChannel)
     case Disconnect =>
-      context.stop(sender)  
+      sender ! PoisonPill
   }
   
 }
@@ -154,10 +158,11 @@ abstract class AbstractWsClientActor(implicit request: RequestHeader) extends Ac
   	}
 	
 	def rescheduleOperative(timeout: FiniteDuration)(implicit channel: Concurrent.Channel[JsValue]): Unit = { 
-	  val newNextStop = 
-  	      	context.system.scheduler.scheduleOnce(browserTimeout, self, Quit)
+	  val newNextStop = context.system.scheduler.scheduleOnce(browserTimeout, self, Quit)
+  	      	
   	    context.become(operativePingPong(newNextStop), true)
-  	    self ! Ping
+  	    context.system.scheduler.scheduleOnce(browserTimeout/2, self, Ping)
+  	    
 	}
 	def rescheduleOperative(implicit channel: Concurrent.Channel[JsValue]): Unit = 
 	  rescheduleOperative(browserTimeout)
@@ -183,15 +188,17 @@ abstract class AbstractWsClientActor(implicit request: RequestHeader) extends Ac
   	}
   	
   	def pongReceive(nextStop: Cancellable)(implicit channel: Concurrent.Channel[JsValue]): PartialFunction[Any,Unit] = {
-  	  case Pong =>
+  	  case Pong => {
   	    nextStop.cancel
   	    rescheduleOperative
+  	  }
   	}
   	
   	def quitReceive(implicit channel: Concurrent.Channel[JsValue]): PartialFunction[Any,Unit] = {
-  	  case Quit =>
+  	  case Quit => {  	   
   	     channel.eofAndEnd
-  	     context.stop(self)
+  	     self ! PoisonPill
+  	  }
   	}
 }
 
