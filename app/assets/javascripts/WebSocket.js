@@ -65,7 +65,7 @@ var WS = WS || {};
 
         for ( var listener in this.listeners[event.type]) {
 
-            this.listeners[event.type][listener](event);
+            this.listeners[event.type][listener](event, this.id);
 
         }
 
