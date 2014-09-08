@@ -9,13 +9,44 @@ var WS = WS || {};
         WS = func();
     }
 })(function () {
+    "use strict";
 
-    var TIMEOUT = 2000;
+    var WS_Manager = (function () {
+        var isFree = true, queue = [];
+
+        function onSignal() {
+            var obj;
+            //console.log("onSignal for ");
+            isFree = true;
+            if (queue.length > 0) {
+                obj = queue.pop();
+                isFree = false;
+                obj.shadowInit();
+            }
+        }
+
+        return {
+
+            initWs: function (wsObj) {
+
+                wsObj.on("open", onSignal);
+                wsObj.on("error", onSignal);
+
+                //console.log("WS_Manager: isFree = "+isFree);
+                if (isFree) {
+                    isFree = false;
+                    wsObj.shadowInit();
+                } else {
+                    queue.push(wsObj);
+                }
+            }
+        }
+    })();
 
     var WS = function (_webSocketId, _placeholderCssSel, verbose) {
 
         this.listeners = {};
-        
+
         this.id = _webSocketId;
         this.placeholderCssSel = _placeholderCssSel;
 
@@ -24,11 +55,15 @@ var WS = WS || {};
         this.wsSocket = null;
         this.hangOutCheck = null;
         this.pong = JSON.stringify({
-            "pong" : true
-        })
+            "pong": true
+        });
 
         this.verbose = (verbose !== undefined) ? verbose : false;
-    }
+
+        this.TIMEOUT = 2000;
+        this.PONG_TIMEOUT = 500;
+
+    };
 
     WS.prototype.off = function (type, listener) {
 
@@ -63,7 +98,7 @@ var WS = WS || {};
 
     WS.prototype.emit = function (event) {
 
-        for ( var listener in this.listeners[event.type]) {
+        for (var listener in this.listeners[event.type]) {
 
             this.listeners[event.type][listener](event, this.id);
 
@@ -82,7 +117,11 @@ var WS = WS || {};
         this.wsSocket.close();
     };
 
-    WS.prototype.init = function () {
+    WS.prototype.init = function() {
+        WS_Manager.initWs(this);
+    };
+
+    WS.prototype.shadowInit = function () {
 
         var that = this;
 
@@ -103,14 +142,19 @@ var WS = WS || {};
                     console.log("WebSocket: " + that.id + " is opened ", that.wsSocket);
 
                 that.emit({
-                    type : 'open',
-                    content : that
+                    type   : 'open',
+                    content: that
                 });
 
             };
             this.wsSocket.onerror = function (event) {
                 if (that.verbose)
                     console.error("WebSocket: " + that.id + " has had an error. ", that.wsSocket);
+
+                that.emit({
+                    type   : 'error',
+                    content: that
+                });
             };
             this.wsSocket.onmessage = function (event) {
 
@@ -124,8 +168,8 @@ var WS = WS || {};
                         console.error("WebSocket: " + that.id + " data error -> ", event.data);
                     }
                     that.emit({
-                        type : 'error',
-                        content : event
+                        type   : 'error',
+                        content: event
                     });
                     that.close();
 
@@ -138,15 +182,17 @@ var WS = WS || {};
                             clearTimeout(that.hangOutCheck);
                             that.hangOutCheck = setTimeout(function () {
                                 that.init();
-                            }, TIMEOUT)
-                            that.wsSocket.send(that.pong);
+                            }, that.TIMEOUT);
+                            setTimeout(function () {
+                                that.wsSocket.send(that.pong);
+                            }, that.PONG_TIMEOUT);
                         } else {
                             that.wsSocket.close();
                         }
                     } else {
                         that.emit({
-                            type : 'message',
-                            content : msg
+                            type   : 'message',
+                            content: msg
                         });
                     }
                 }
@@ -156,15 +202,15 @@ var WS = WS || {};
                     console.log("WebSocket: " + that.id + " closed by server. Placeholder: " + that.placeholderCssSel);
 
                 that.emit({
-                    type : 'close',
-                    content : that
+                    type   : 'close',
+                    content: that
                 });
 
                 if ($(that.placeholderCssSel).length > 0) {
                     // reactivate connection
                     setTimeout(function () {
                         that.init();
-                    }, TIMEOUT);
+                    }, that.TIMEOUT);
                 }
             };
         }
@@ -177,9 +223,8 @@ var WS = WS || {};
 
             this.wsSocket.send(JSON.stringify(msg));
 
-        } 
-        else 
-        {
+        }
+        else {
 
             if (this.verbose)
                 console.warn("WebSocket: " + this.id + " is not ready, maybe missing 'init'? ", this);

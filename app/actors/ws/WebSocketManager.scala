@@ -46,8 +46,8 @@ abstract class AbstractWSManagerActor extends Actor {
   
   import WSInnerMsgs._
   
-  val initTimeout = 8 seconds	
-  val browserTimeout = 2000 milliseconds 
+  val initTimeout = 4 seconds
+  val browserTimeout = 2 seconds 
   
   def receive = {
     connectionManagement orElse
@@ -55,7 +55,7 @@ abstract class AbstractWSManagerActor extends Actor {
   }
   
   def dispatch: PartialFunction[Any,Unit] = {
-    case msg => 
+    case msg =>
       context.children.foreach(act => act ! msg)
   }
     
@@ -88,7 +88,7 @@ abstract class AbstractWSManagerActor extends Actor {
      
       	sender ! Connected(inChannel,outChannel)
     case Disconnect =>
-      sender ! PoisonPill
+      context.stop(sender)  
   }
   
 }
@@ -147,7 +147,9 @@ abstract class AbstractWsClientActor(implicit request: RequestHeader) extends Ac
 	  val browserTimeout: FiniteDuration
       def operative(implicit request: RequestHeader): ((ActorRef) => PartialFunction[Any,Unit])
   
-  import WSClientInnerMsgs._
+    import WSClientInnerMsgs._
+  
+    val pingTimeout = 500 milliseconds
     	
     def receive = {
 	  case InitDone(channel) =>
@@ -158,11 +160,10 @@ abstract class AbstractWsClientActor(implicit request: RequestHeader) extends Ac
   	}
 	
 	def rescheduleOperative(timeout: FiniteDuration)(implicit channel: Concurrent.Channel[JsValue]): Unit = { 
-	  val newNextStop = context.system.scheduler.scheduleOnce(browserTimeout, self, Quit)
-  	      	
+	  val newNextStop = 
+  	      	context.system.scheduler.scheduleOnce(browserTimeout, self, Quit)
   	    context.become(operativePingPong(newNextStop), true)
-  	    context.system.scheduler.scheduleOnce(browserTimeout/2, self, Ping)
-  	    
+  	    context.system.scheduler.scheduleOnce(pingTimeout, self, Ping)
 	}
 	def rescheduleOperative(implicit channel: Concurrent.Channel[JsValue]): Unit = 
 	  rescheduleOperative(browserTimeout)
@@ -188,17 +189,15 @@ abstract class AbstractWsClientActor(implicit request: RequestHeader) extends Ac
   	}
   	
   	def pongReceive(nextStop: Cancellable)(implicit channel: Concurrent.Channel[JsValue]): PartialFunction[Any,Unit] = {
-  	  case Pong => {
+  	  case Pong =>
   	    nextStop.cancel
   	    rescheduleOperative
-  	  }
   	}
   	
   	def quitReceive(implicit channel: Concurrent.Channel[JsValue]): PartialFunction[Any,Unit] = {
-  	  case Quit => {  	   
+  	  case Quit =>
   	     channel.eofAndEnd
-  	     self ! PoisonPill
-  	  }
+  	     context.stop(self)
   	}
 }
 
