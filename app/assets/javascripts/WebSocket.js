@@ -16,7 +16,6 @@ var WS = WS || {};
 
         function onSignal() {
             var obj;
-            //console.log("onSignal for ");
             isFree = true;
             if (queue.length > 0) {
                 obj = queue.pop();
@@ -29,10 +28,9 @@ var WS = WS || {};
 
             initWs: function (wsObj) {
 
-                wsObj.on("open", onSignal);
-                wsObj.on("error", onSignal);
+                wsObj.one("open", onSignal);
+                wsObj.one("error", onSignal);
 
-                //console.log("WS_Manager: isFree = "+isFree);
                 if (isFree) {
                     isFree = false;
                     wsObj.shadowInit();
@@ -96,6 +94,36 @@ var WS = WS || {};
 
     };
 
+    WS.prototype.one = function (type, listener) {
+
+        var the_one, that = this;
+
+        if (this.listeners[type] === undefined) {
+
+            this.listeners[type] = [];
+
+        }
+
+        if (this.listeners[type].indexOf(listener) === -1) {
+
+            the_one = function () {
+
+                var index = that.listeners[type].indexOf(the_one);
+
+                listener(event, that.id);
+
+                if (index !== -1) {
+
+                    that.listeners[type].splice(index, 1);
+
+                }
+            }
+
+            this.listeners[type].push(the_one);
+        }
+
+    };
+
     WS.prototype.emit = function (event) {
 
         for (var listener in this.listeners[event.type]) {
@@ -117,7 +145,7 @@ var WS = WS || {};
         this.wsSocket.close();
     };
 
-    WS.prototype.init = function() {
+    WS.prototype.init = function () {
         WS_Manager.initWs(this);
     };
 
@@ -179,13 +207,11 @@ var WS = WS || {};
 
                     if (msg.ping != undefined) {
                         if ($(that.placeholderCssSel).length > 0) {
-                            clearTimeout(that.hangOutCheck);
-                            that.hangOutCheck = setTimeout(function () {
-                                that.init();
-                            }, that.TIMEOUT);
+
                             setTimeout(function () {
                                 that.wsSocket.send(that.pong);
                             }, that.PONG_TIMEOUT);
+
                         } else {
                             that.wsSocket.close();
                         }
