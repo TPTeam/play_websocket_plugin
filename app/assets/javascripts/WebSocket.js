@@ -106,15 +106,15 @@ var WS = WS || {};
 
         if (this.listeners[type].indexOf(listener) === -1) {
 
-            the_one = function () {
+            the_one = function (event) {
 
                 var index = that.listeners[type].indexOf(the_one);
 
-                listener(event, that.id);
+                listener(type, that.id);
 
                 if (index !== -1) {
 
-                    that.listeners[type].splice(index, 1);
+                    that.listeners[event].splice(index, 1);
 
                 }
             }
